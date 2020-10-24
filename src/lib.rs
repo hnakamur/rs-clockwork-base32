@@ -1,4 +1,5 @@
 use std::io::{Error, ErrorKind, Result};
+use std::iter::Iterator;
 use std::slice::Iter;
 
 const ENCODED_BIT_LEN: usize = 8;
@@ -13,10 +14,13 @@ pub fn encode(dest: &mut Vec<u8>, input: &[u8]) {
     }
 }
 
-pub fn decode(dest: &mut Vec<u8>, input: &[u8]) -> Result<()> {
+pub fn decode<'a, I>(dest: &mut Vec<u8>, input: I) -> Result<()>
+where
+    I: IntoIterator<Item = &'a u8>,
+{
     let mut bit_count: usize = 0;
     let mut buffer: u8 = 0;
-    for b in input.iter() {
+    for b in input {
         let s = DECODE_SYMBOLS[*b as usize];
         if s < 0 {
             return Err(Error::new(
