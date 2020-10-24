@@ -5,12 +5,10 @@ const DECODED_BIT_LEN: usize = 5;
 const BYTE_BIT_LEN: usize = 8;
 
 pub fn encode(dest: &mut Vec<u8>, input: &[u8]) {
-    let capacity = input.len() * ENCODED_BIT_LEN / DECODED_BIT_LEN;
+    let capacity = (input.len() * ENCODED_BIT_LEN + DECODED_BIT_LEN - 1) / DECODED_BIT_LEN;
     dest.reserve(capacity);
-    let mut dest_byte: u8;
-    let mut dest_pos: usize = 0;
-    for (i, input_byte) in input.iter().enumerate() {
-        println!("i={}, input_byte={:?}", i, input_byte);
+    for b in FiveBitsIter::new(input.iter()) {
+        dest.push(ENCODE_SYMBOLS[b as usize]);
     }
 }
 
