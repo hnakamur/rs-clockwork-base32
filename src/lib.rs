@@ -3,15 +3,6 @@ use std::io::{Error, ErrorKind, Result};
 const DECODED_BIT_LEN: usize = 5;
 const BYTE_BIT_LEN: usize = 8;
 
-pub fn encode<'a, I>(dest: &mut Vec<u8>, input: I)
-where
-    I: IntoIterator<Item = &'a u8>,
-{
-    for b in FiveBitsIter::new(input.into_iter()) {
-        dest.push(ENCODE_SYMBOLS[b as usize]);
-    }
-}
-
 pub fn decode<'a, I>(dest: &mut Vec<u8>, input: I) -> Result<()>
 where
     I: IntoIterator<Item = &'a u8>,
@@ -41,6 +32,15 @@ where
         }
     }
     Ok(())
+}
+
+pub fn encode<'a, I>(dest: &mut Vec<u8>, input: I)
+where
+    I: IntoIterator<Item = &'a u8>,
+{
+    for b in FiveBitsIter::new(input.into_iter()) {
+        dest.push(ENCODE_SYMBOLS[b as usize]);
+    }
 }
 
 struct FiveBitsIter<I> {
@@ -139,7 +139,7 @@ mod tests {
         encoded: &'a [u8],
     }
 
-    const CASES: [TestCase; 4] = [
+    const CASES: [TestCase; 6] = [
         TestCase {
             plain: b"foobar",
             encoded: b"CSQPYRK1E8",
@@ -155,6 +155,14 @@ mod tests {
         TestCase {
             plain: b"Wow, it really works!",
             encoded: b"AXQQEB10D5T20WK5C5P6RY90EXQQ4TVK44",
+        },
+        TestCase {
+            plain: b"f",
+            encoded: b"CR",
+        },
+        TestCase {
+            plain: b"f0",
+            encoded: b"CRR0",
         },
     ];
 
