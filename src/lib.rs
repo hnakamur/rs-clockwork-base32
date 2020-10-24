@@ -3,7 +3,53 @@ use std::io::{Error, ErrorKind, Result};
 const DECODED_BIT_LEN: usize = 5;
 const BYTE_BIT_LEN: usize = 8;
 
-pub fn decode<'a, I>(dest: &mut Vec<u8>, input: I) -> Result<()>
+pub fn decode_to_string<'a, I>(input: I) -> Result<String>
+where
+    I: IntoIterator<Item = &'a u8>,
+{
+    let mut dest = String::new();
+    append_decoded_to_string(&mut dest, input)?;
+    Ok(dest)
+}
+
+pub fn decode_to_vec<'a, I>(input: I) -> Result<Vec<u8>>
+where
+    I: IntoIterator<Item = &'a u8>,
+{
+    let mut dest = Vec::new();
+    append_decoded_to_vec(&mut dest, input)?;
+    Ok(dest)
+}
+
+pub fn encode_to_string<'a, I>(input: I) -> String
+where
+    I: IntoIterator<Item = &'a u8>,
+{
+    let mut dest = String::new();
+    append_encoded_to_string(&mut dest, input);
+    dest
+}
+
+pub fn encode_to_vec<'a, I>(input: I) -> Vec<u8>
+where
+    I: IntoIterator<Item = &'a u8>,
+{
+    let mut dest = Vec::new();
+    append_encoded_to_vec(&mut dest, input);
+    dest
+}
+
+pub fn append_decoded_to_string<'a, I>(dest: &mut String, input: I) -> Result<()>
+where
+    I: IntoIterator<Item = &'a u8>,
+{
+    for b in DecodeIter::new(input.into_iter()) {
+        dest.push(b? as char);
+    }
+    Ok(())
+}
+
+pub fn append_decoded_to_vec<'a, I>(dest: &mut Vec<u8>, input: I) -> Result<()>
 where
     I: IntoIterator<Item = &'a u8>,
 {
@@ -13,7 +59,16 @@ where
     Ok(())
 }
 
-pub fn encode<'a, I>(dest: &mut Vec<u8>, input: I)
+pub fn append_encoded_to_string<'a, I>(dest: &mut String, input: I)
+where
+    I: IntoIterator<Item = &'a u8>,
+{
+    for b in FiveBitsIter::new(input.into_iter()) {
+        dest.push(ENCODE_SYMBOLS[b as usize] as char);
+    }
+}
+
+pub fn append_encoded_to_vec<'a, I>(dest: &mut Vec<u8>, input: I)
 where
     I: IntoIterator<Item = &'a u8>,
 {
@@ -167,103 +222,101 @@ mod tests {
     use super::*;
 
     struct TestCase<'a> {
-        plain: &'a [u8],
-        encoded: &'a [u8],
+        plain: &'a str,
+        encoded: &'a str,
     }
 
     const CASES: [TestCase; 6] = [
         TestCase {
-            plain: b"foobar",
-            encoded: b"CSQPYRK1E8",
+            plain: "foobar",
+            encoded: "CSQPYRK1E8",
         },
         TestCase {
-            plain: b"Hello, world!",
-            encoded: b"91JPRV3F5GG7EVVJDHJ22",
+            plain: "Hello, world!",
+            encoded: "91JPRV3F5GG7EVVJDHJ22",
         },
         TestCase {
-            plain: b"The quick brown fox jumps over the lazy dog.",
-            encoded: b"AHM6A83HENMP6TS0C9S6YXVE41K6YY10D9TPTW3K41QQCSBJ41T6GS90DHGQMY90CHQPEBG",
+            plain: "The quick brown fox jumps over the lazy dog.",
+            encoded: "AHM6A83HENMP6TS0C9S6YXVE41K6YY10D9TPTW3K41QQCSBJ41T6GS90DHGQMY90CHQPEBG",
         },
         TestCase {
-            plain: b"Wow, it really works!",
-            encoded: b"AXQQEB10D5T20WK5C5P6RY90EXQQ4TVK44",
+            plain: "Wow, it really works!",
+            encoded: "AXQQEB10D5T20WK5C5P6RY90EXQQ4TVK44",
         },
         TestCase {
-            plain: b"f",
-            encoded: b"CR",
+            plain: "f",
+            encoded: "CR",
         },
         TestCase {
-            plain: b"f0",
-            encoded: b"CRR0",
+            plain: "f0",
+            encoded: "CRR0",
         },
     ];
 
     #[test]
-    fn test_encode() {
+    fn test_encode_to_string() {
         for c in CASES.iter() {
-            let mut dest = Vec::new();
-            encode(&mut dest, c.plain);
-            assert_eq!(&dest, c.encoded);
+            assert_eq!(encode_to_string(c.plain.as_bytes()), c.encoded);
         }
     }
 
     #[test]
-    fn test_encode_str() {
-        let mut dest = Vec::new();
-        encode(&mut dest, "foobar".as_bytes());
-        assert_eq!(&dest, b"CSQPYRK1E8");
-    }
-
-    #[test]
-    fn test_decode() {
+    fn test_encode_to_vec() {
         for c in CASES.iter() {
-            let mut dest = Vec::new();
-            assert!(decode(&mut dest, c.encoded).is_ok());
-            assert_eq!(&dest, c.plain);
+            assert_eq!(encode_to_vec(c.plain.as_bytes()), c.encoded.as_bytes());
         }
     }
 
     #[test]
-    fn test_decode_str() {
-        let mut dest = Vec::new();
-        assert!(decode(&mut dest, "CSQPYRK1E8".as_bytes()).is_ok());
-        assert_eq!(&dest, b"foobar");
+    fn test_decode_to_string() {
+        for c in CASES.iter() {
+            let ret = decode_to_string(c.encoded.as_bytes());
+            assert!(ret.is_ok());
+            assert_eq!(ret.ok().unwrap(), c.plain);
+        }
+    }
+
+    #[test]
+    fn test_decode_to_vec() {
+        for c in CASES.iter() {
+            let ret = decode_to_vec(c.encoded.as_bytes());
+            assert!(ret.is_ok());
+            assert_eq!(ret.ok().unwrap(), c.plain.as_bytes());
+        }
     }
 
     #[test]
     fn test_decode_corner_cases() {
         const CORNER_CASES: [TestCase; 3] = [
             TestCase {
-                plain: b"",
-                encoded: b"C",
+                plain: "",
+                encoded: "C",
             },
             TestCase {
-                plain: b"f",
-                encoded: b"CR",
+                plain: "f",
+                encoded: "CR",
             },
             TestCase {
-                plain: b"f",
-                encoded: b"CR0",
+                plain: "f",
+                encoded: "CR0",
             },
         ];
         for c in CORNER_CASES.iter() {
-            let mut dest = Vec::new();
-            assert!(decode(&mut dest, c.encoded).is_ok());
-            assert_eq!(&dest, c.plain);
+            let ret = decode_to_string(c.encoded.as_bytes());
+            assert!(ret.is_ok());
+            assert_eq!(ret.ok().unwrap(), c.plain);
         }
     }
 
     #[test]
     fn test_decode_invalid_char() {
-        let mut dest = Vec::new();
-
-        let res = decode(&mut dest, b"U");
+        let res = decode_to_string(b"U");
         assert!(res.is_err());
         let err = res.as_ref().err().unwrap();
         assert_eq!(err.kind(), ErrorKind::InvalidInput);
         assert_eq!(format!("{}", err), "invalid symbol value U");
 
-        let res = decode(&mut dest, b"confuse");
+        let res = decode_to_string(b"confuse");
         assert!(res.is_err());
         let err = res.as_ref().err().unwrap();
         assert_eq!(err.kind(), ErrorKind::InvalidInput);
