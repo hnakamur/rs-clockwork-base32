@@ -18,16 +18,20 @@ pub fn decode(dest: &mut Vec<u8>, input: &[u8]) {}
 
 struct FiveBitsIter<'a> {
     input: Iter<'a, u8>,
-    bit_offset: usize,
-    buffer: Option<u8>,
+
+    // bit_count is effective bits count in buffer
+    bit_count: usize,
+
+    // buffer is keeping the `bit_count` bits from MSB to LSB.
+    buffer: u8,
 }
 
 impl<'a> FiveBitsIter<'a> {
     fn new(input: Iter<'a, u8>) -> Self {
         Self {
             input,
-            bit_offset: 0,
-            buffer: None,
+            bit_count: 0,
+            buffer: 0,
         }
     }
 }
@@ -36,47 +40,31 @@ impl<'a> Iterator for FiveBitsIter<'a> {
     type Item = u8;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let b1 = match self.buffer.take() {
-            Some(b) => b,
-            None => match self.input.next() {
-                Some(b) => *b,
-                None => return None,
-            },
+        let b1 = if self.bit_count == 0 {
+            self.bit_count += BYTE_BIT_LEN;
+            *self.input.next()?
+        } else {
+            self.buffer
         };
-        if self.bit_offset + DECODED_BIT_LEN <= BYTE_BIT_LEN {
-            let rest = BYTE_BIT_LEN - (self.bit_offset + DECODED_BIT_LEN);
-            let output = (b1 << self.bit_offset) >> rest;
+        if self.bit_count >= DECODED_BIT_LEN {
+            let rest = BYTE_BIT_LEN - DECODED_BIT_LEN;
+            let output = b1 >> (BYTE_BIT_LEN - DECODED_BIT_LEN);
             if rest > 0 {
-                self.buffer = Some(b1 << (BYTE_BIT_LEN - rest));
+                self.buffer = b1 << DECODED_BIT_LEN;
             }
-            self.bit_offset += DECODED_BIT_LEN;
+            self.bit_count -= DECODED_BIT_LEN;
             return Some(output);
         }
 
-        let b2 = match self.input.next() {
-            Some(b) => *b,
-            None => return None,
-        };
-        let output = b1 | (b2 >> (BYTE_BIT_LEN - self.bit_offset));
+        let (b2, eof) = self.input.next().map_or((0, true), |b| (*b, false));
+        let output = (b1 | b2 >> self.bit_count) >> (BYTE_BIT_LEN - DECODED_BIT_LEN);
+        if eof {
+            self.bit_count = 0;
+        } else {
+            self.bit_count += BYTE_BIT_LEN - DECODED_BIT_LEN;
+            self.buffer = b2 << (BYTE_BIT_LEN - self.bit_count);
+        }
         Some(output)
-
-        
-        // if self.byte_index >= self.input.len() - 1 && self.bit_offset >= BYTE_BIT_LEN {
-        //     return None;
-        // }
-
-        // if self.bit_offset + DECODED_BIT_LEN <= BYTE_BIT_LEN {
-        //     let mut output =
-        //         self.input[self.byte_index] >> (BYTE_BIT_LEN - (self.bit_offset + DECODED_BIT_LEN));
-        //     if self.bit_offset != 0 {
-        //         let mask = (1 << (BYTE_BIT_LEN - self.bit_offset)) - 1;
-        //         output &= mask;
-        //     }
-        //     Some(output)
-        // } else {
-        //     Some(0)
-        // }
-        // None
     }
 }
 
@@ -153,13 +141,13 @@ mod tests {
 
     #[test]
     fn test_5bits_iter() {
-        const INPUT: &[u8] = &[0b1101_0011, 0b1011_1001, 0b100_0001];
+        const INPUT: &[u8] = &[0b1101_0011, 0b1011_1001, 0b1000_0001];
         let mut it = FiveBitsIter::new(INPUT.iter());
         assert_eq!(it.next(), Some(0b11010));
         assert_eq!(it.next(), Some(0b01110));
         assert_eq!(it.next(), Some(0b11100));
         assert_eq!(it.next(), Some(0b11000));
-        assert_eq!(it.next(), Some(0b00100));
+        assert_eq!(it.next(), Some(0b00010));
         assert!(it.next().is_none());
     }
 }
