@@ -1,5 +1,5 @@
 [package]
-name = "rs-clockwork-base32"
+name = "clockwork_base32"
 version = "0.1.0"
 authors = ["Hiroaki Nakamura <hnakamur@gmail.com>"]
 edition = "2018"

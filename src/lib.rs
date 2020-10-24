@@ -1,56 +1,240 @@
+//! Clockwork Base32 decoding and encoding
+//!
+//! This module contains high level functions and low level functions
+//! for decoding and encoding bytes with
+//! [`Clockwork Base32`](https://gist.github.com/szktty/228f85794e4187882a77734c89c384a8).
+//!
+//! ## Examples
+//!
+//! You can encode bytes to a [`String`] with [`encode_to_string`]:
+//!
+//! ```
+//! use clockwork_base32::encode_to_string;
+//! let encoded = encode_to_string(b"Hello, world!");
+//! assert_eq!(&encoded, "91JPRV3F5GG7EVVJDHJ22");
+//! ```
+//!
+//! You can decode bytes to a [`String`] with [`decode_to_string`]:
+//!
+//! ```
+//! # fn main() -> std::io::Result<()> {
+//! use clockwork_base32::decode_to_string;
+//! let decoded = decode_to_string(b"91JPRV3F5GG7EVVJDHJ22")?;
+//! assert_eq!(&decoded, "Hello, world!");
+//! # Ok(())
+//! # }
+//! ```
+//!
+//!
+//! # High level functions
+//! These functions decode/encode bytes and return a new [`String`] or [`Vec<u8>`] as the result.
+//! * [`decode_to_string`]
+//! * [`encode_to_string`]
+//! * [`decode_to_vec`]
+//! * [`encode_to_vec`]
+//!
+//! # Low level functions
+//! These functions take a [`String`] or [`Vec<u8>`] argument for the destination
+//! and append the decoded/encoded result to it.
+//! * [`append_decoded_to_string`]
+//! * [`append_decoded_to_vec`]
+//! * [`append_encoded_to_string`]
+//! * [`append_encoded_to_vec`]
+//!
+//! These functions can be used to calculate the capacity for the decode/encode result
+//! beforehand.
+//! * [`capacity_hint_for_decode`]
+//! * [`capacity_hint_for_encode`]
+
 use std::io::{Error, ErrorKind, Result};
 
 const DECODED_BIT_LEN: usize = 5;
 const BYTE_BIT_LEN: usize = 8;
 
+/// Decodes bytes and returns the result as a new [`String`].
+///
+/// # Errors
+/// Returns [`Err`] if the input contains a invalid byte.
+///
+/// # Examples
+/// Basic usage:
+/// ```
+/// # fn main() -> std::io::Result<()> {
+/// use clockwork_base32::decode_to_string;
+/// let decoded = decode_to_string(b"91JPRV3F5GG7EVVJDHJ22")?;
+/// assert_eq!(&decoded, "Hello, world!");
+/// # Ok(())
+/// # }
+/// ```
+/// If your input is a [`String`], you can convert it to bytes using [`str::as_bytes`].
+/// ```
+/// # fn main() -> std::io::Result<()> {
+/// use clockwork_base32::decode_to_string;
+/// let input = String::from("91JPRV3F5GG7EVVJDHJ22");
+/// let decoded = decode_to_string(input.as_bytes())?;
+/// assert_eq!(&decoded, "Hello, world!");
+/// # Ok(())
+/// # }
+/// ```
 pub fn decode_to_string<'a, I>(input: I) -> Result<String>
 where
     I: IntoIterator<Item = &'a u8>,
 {
     let it = input.into_iter();
-    let mut dest = String::with_capacity(capacity_for_decode(it.size_hint().0));
+    let mut dest = String::with_capacity(capacity_hint_for_decode(it.size_hint().0));
     append_decoded_to_string(&mut dest, it)?;
     Ok(dest)
 }
 
+/// Decodes bytes and returns the result as a new [`Vec<u8>`].
+///
+/// # Errors
+/// Returns [`Err`] if the input contains a invalid byte.
+///
+/// # Examples
+/// ```
+/// # fn main() -> std::io::Result<()> {
+/// use clockwork_base32::decode_to_vec;
+/// let decoded = decode_to_vec(b"91JPRV3F5GG7EVVJDHJ22")?;
+/// assert_eq!(&decoded, b"Hello, world!");
+/// # Ok(())
+/// # }
+/// ```
 pub fn decode_to_vec<'a, I>(input: I) -> Result<Vec<u8>>
 where
     I: IntoIterator<Item = &'a u8>,
 {
     let it = input.into_iter();
-    let mut dest = Vec::with_capacity(capacity_for_decode(it.size_hint().0));
+    let mut dest = Vec::with_capacity(capacity_hint_for_decode(it.size_hint().0));
     append_decoded_to_vec(&mut dest, it)?;
     Ok(dest)
 }
 
+/// Encodes bytes and returns the result as a new [`String`].
+///
+/// # Examples
+/// Basic usage:
+/// ```
+/// use clockwork_base32::encode_to_string;
+/// let encoded = encode_to_string(b"Hello, world!");
+/// assert_eq!(&encoded, "91JPRV3F5GG7EVVJDHJ22");
+/// ```
+/// If your input is a [`String`], you can convert it to bytes using [`str::as_bytes`].
+/// ```
+/// use clockwork_base32::encode_to_string;
+/// let input = String::from("Hello, world!");
+/// let encoded = encode_to_string(input.as_bytes());
+/// assert_eq!(&encoded, "91JPRV3F5GG7EVVJDHJ22");
+/// ```
 pub fn encode_to_string<'a, I>(input: I) -> String
 where
     I: IntoIterator<Item = &'a u8>,
 {
     let it = input.into_iter();
-    let mut dest = String::with_capacity(capacity_for_encode(it.size_hint().0));
+    let mut dest = String::with_capacity(capacity_hint_for_encode(it.size_hint().0));
     append_encoded_to_string(&mut dest, it);
     dest
 }
 
+/// Encodes bytes and returns the result as a new [`Vec<u8>`].
+///
+/// # Examples
+/// ```
+/// use clockwork_base32::encode_to_vec;
+/// let encoded = encode_to_vec(b"Hello, world!");
+/// assert_eq!(&encoded, b"91JPRV3F5GG7EVVJDHJ22");
+/// ```
 pub fn encode_to_vec<'a, I>(input: I) -> Vec<u8>
 where
     I: IntoIterator<Item = &'a u8>,
 {
     let it = input.into_iter();
-    let mut dest = Vec::with_capacity(capacity_for_encode(it.size_hint().0));
+    let mut dest = Vec::with_capacity(capacity_hint_for_encode(it.size_hint().0));
     append_encoded_to_vec(&mut dest, it);
     dest
 }
 
-pub fn capacity_for_decode(len: usize) -> usize {
-    len * DECODED_BIT_LEN / BYTE_BIT_LEN
+/// Returns a hint for the capacity needed for the decoded result.
+/// # Examples
+/// Basic usage:
+/// ```
+/// use clockwork_base32::capacity_hint_for_decode;
+/// let capacity = capacity_hint_for_decode(21);
+/// assert_eq!(capacity, 13);
+/// ```
+/// You can reserve the needed capacity before decoding:
+/// ```
+/// # fn main() -> std::io::Result<()> {
+/// use clockwork_base32::append_decoded_to_string;
+/// let input = b"91JPRV3F5GG7EVVJDHJ22";
+/// let mut dest = String::with_capacity(input.len());
+/// append_decoded_to_string(&mut dest, input.into_iter())?;
+/// assert_eq!(&dest, "Hello, world!");
+/// # Ok(())
+/// # }
+/// ```
+pub fn capacity_hint_for_decode(input_byte_len: usize) -> usize {
+    input_byte_len * DECODED_BIT_LEN / BYTE_BIT_LEN
 }
 
-pub fn capacity_for_encode(len: usize) -> usize {
-    (len * BYTE_BIT_LEN + (DECODED_BIT_LEN - 1)) / DECODED_BIT_LEN
+/// Returns a hint for the capacity needed for the encoded result.
+/// # Examples
+/// Basic usage:
+/// ```
+/// use clockwork_base32::capacity_hint_for_encode;
+/// let capacity = capacity_hint_for_encode(13);
+/// assert_eq!(capacity, 21);
+/// ```
+/// You can reserve the needed capacity before encoding:
+/// ```
+/// use clockwork_base32::append_encoded_to_string;
+/// let input = b"Hello, world!";
+/// let mut dest = String::with_capacity(input.len());
+/// append_encoded_to_string(&mut dest, input.into_iter());
+/// assert_eq!(&dest, "91JPRV3F5GG7EVVJDHJ22");
+/// ```
+pub fn capacity_hint_for_encode(input_byte_len: usize) -> usize {
+    (input_byte_len * BYTE_BIT_LEN + (DECODED_BIT_LEN - 1)) / DECODED_BIT_LEN
 }
 
+/// Decodes bytes and append the result to `dest`.
+///
+/// # Errors
+/// Returns [`Err`] if the input contains a invalid byte.
+///
+/// # Examples
+/// Basic usage:
+/// ```
+/// # fn main() -> std::io::Result<()> {
+/// use clockwork_base32::append_decoded_to_string;
+/// let mut dest = String::new();
+/// append_decoded_to_string(&mut dest, b"91JPRV3F5GG7EVVJDHJ22".into_iter())?;
+/// assert_eq!(&dest, "Hello, world!");
+/// # Ok(())
+/// # }
+/// ```
+/// If your input is a [`String`], you can convert it to bytes using [`str::as_bytes`].
+/// ```
+/// # fn main() -> std::io::Result<()> {
+/// use clockwork_base32::append_decoded_to_string;
+/// let mut dest = String::new();
+/// let input = String::from("91JPRV3F5GG7EVVJDHJ22");
+/// append_decoded_to_string(&mut dest, input.as_bytes().into_iter())?;
+/// assert_eq!(&dest, "Hello, world!");
+/// # Ok(())
+/// # }
+/// ```
+/// You can reserve the needed capacity before decoding:
+/// ```
+/// # fn main() -> std::io::Result<()> {
+/// use clockwork_base32::append_decoded_to_string;
+/// let input = b"91JPRV3F5GG7EVVJDHJ22";
+/// let mut dest = String::with_capacity(input.len());
+/// append_decoded_to_string(&mut dest, input.into_iter())?;
+/// assert_eq!(&dest, "Hello, world!");
+/// # Ok(())
+/// # }
+/// ```
 pub fn append_decoded_to_string<'a, I>(dest: &mut String, input: I) -> Result<()>
 where
     I: Iterator<Item = &'a u8>,
@@ -61,6 +245,33 @@ where
     Ok(())
 }
 
+/// Decodes bytes and append the result to `dest`.
+///
+/// # Errors
+/// Returns [`Err`] if the input contains a invalid byte.
+///
+/// # Examples
+/// Basic usage:
+/// ```
+/// # fn main() -> std::io::Result<()> {
+/// use clockwork_base32::append_decoded_to_vec;
+/// let mut dest = Vec::new();
+/// append_decoded_to_vec(&mut dest, b"91JPRV3F5GG7EVVJDHJ22".into_iter())?;
+/// assert_eq!(&dest, b"Hello, world!");
+/// # Ok(())
+/// # }
+/// ```
+/// You can reserve the needed capacity before decoding:
+/// ```
+/// # fn main() -> std::io::Result<()> {
+/// use clockwork_base32::append_decoded_to_vec;
+/// let input = b"91JPRV3F5GG7EVVJDHJ22";
+/// let mut dest = Vec::with_capacity(input.len());
+/// append_decoded_to_vec(&mut dest, input.into_iter())?;
+/// assert_eq!(&dest, b"Hello, world!");
+/// # Ok(())
+/// # }
+/// ```
 pub fn append_decoded_to_vec<'a, I>(dest: &mut Vec<u8>, input: I) -> Result<()>
 where
     I: Iterator<Item = &'a u8>,
@@ -71,6 +282,32 @@ where
     Ok(())
 }
 
+/// Encodes bytes and append the result to `dest`.
+///
+/// # Examples
+/// Basic usage:
+/// ```
+/// use clockwork_base32::append_encoded_to_string;
+/// let mut dest = String::new();
+/// append_encoded_to_string(&mut dest, b"Hello, world!".into_iter());
+/// assert_eq!(&dest, "91JPRV3F5GG7EVVJDHJ22");
+/// ```
+/// If your input is a [`String`], you can convert it to bytes using [`str::as_bytes`].
+/// ```
+/// use clockwork_base32::append_encoded_to_string;
+/// let mut dest = String::new();
+/// let input = String::from("Hello, world!");
+/// append_encoded_to_string(&mut dest, input.as_bytes().into_iter());
+/// assert_eq!(&dest, "91JPRV3F5GG7EVVJDHJ22");
+/// ```
+/// You can reserve the needed capacity before encoding:
+/// ```
+/// use clockwork_base32::append_encoded_to_string;
+/// let input = b"Hello, world!";
+/// let mut dest = String::with_capacity(input.len());
+/// append_encoded_to_string(&mut dest, input.into_iter());
+/// assert_eq!(&dest, "91JPRV3F5GG7EVVJDHJ22");
+/// ```
 pub fn append_encoded_to_string<'a, I>(dest: &mut String, input: I)
 where
     I: Iterator<Item = &'a u8>,
@@ -80,6 +317,32 @@ where
     }
 }
 
+/// Encodes bytes and append the result to `dest`.
+///
+/// # Examples
+/// Basic usage:
+/// ```
+/// use clockwork_base32::append_encoded_to_vec;
+/// let mut dest = Vec::new();
+/// append_encoded_to_vec(&mut dest, b"Hello, world!".into_iter());
+/// assert_eq!(&dest, b"91JPRV3F5GG7EVVJDHJ22");
+/// ```
+/// If your input is a [`String`], you can convert it to bytes using [`str::as_bytes`].
+/// ```
+/// use clockwork_base32::append_encoded_to_vec;
+/// let mut dest = Vec::new();
+/// let input = String::from("Hello, world!");
+/// append_encoded_to_vec(&mut dest, input.as_bytes().into_iter());
+/// assert_eq!(&dest, b"91JPRV3F5GG7EVVJDHJ22");
+/// ```
+/// You can reserve the needed capacity before encoding:
+/// ```
+/// use clockwork_base32::append_encoded_to_vec;
+/// let input = b"Hello, world!";
+/// let mut dest = Vec::with_capacity(input.len());
+/// append_encoded_to_vec(&mut dest, input.into_iter());
+/// assert_eq!(&dest, b"91JPRV3F5GG7EVVJDHJ22");
+/// ```
 pub fn append_encoded_to_vec<'a, I>(dest: &mut Vec<u8>, input: I)
 where
     I: Iterator<Item = &'a u8>,
@@ -269,7 +532,7 @@ mod tests {
     fn test_encode_to_string() {
         for c in CASES.iter() {
             assert_eq!(encode_to_string(c.plain.as_bytes()), c.encoded);
-            assert_eq!(capacity_for_encode(c.plain.len()), c.encoded.len());
+            assert_eq!(capacity_hint_for_encode(c.plain.len()), c.encoded.len());
         }
     }
 
@@ -277,7 +540,7 @@ mod tests {
     fn test_encode_to_vec() {
         for c in CASES.iter() {
             assert_eq!(encode_to_vec(c.plain.as_bytes()), c.encoded.as_bytes());
-            assert_eq!(capacity_for_encode(c.plain.len()), c.encoded.len());
+            assert_eq!(capacity_hint_for_encode(c.plain.len()), c.encoded.len());
         }
     }
 
@@ -287,7 +550,7 @@ mod tests {
             let ret = decode_to_string(c.encoded.as_bytes());
             assert!(ret.is_ok());
             assert_eq!(ret.ok().unwrap(), c.plain);
-            assert_eq!(capacity_for_decode(c.encoded.len()), c.plain.len());
+            assert_eq!(capacity_hint_for_decode(c.encoded.len()), c.plain.len());
         }
     }
 
@@ -297,7 +560,7 @@ mod tests {
             let ret = decode_to_vec(c.encoded.as_bytes());
             assert!(ret.is_ok());
             assert_eq!(ret.ok().unwrap(), c.plain.as_bytes());
-            assert_eq!(capacity_for_decode(c.encoded.len()), c.plain.len());
+            assert_eq!(capacity_hint_for_decode(c.encoded.len()), c.plain.len());
         }
     }
 
