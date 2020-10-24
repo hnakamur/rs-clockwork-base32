@@ -1,3 +1,4 @@
+use std::io::{Error, ErrorKind, Result};
 use std::slice::Iter;
 
 const ENCODED_BIT_LEN: usize = 8;
@@ -12,7 +13,33 @@ pub fn encode(dest: &mut Vec<u8>, input: &[u8]) {
     }
 }
 
-pub fn decode(dest: &mut Vec<u8>, input: &[u8]) {}
+pub fn decode(dest: &mut Vec<u8>, input: &[u8]) -> Result<()> {
+    let mut bit_count: usize = 0;
+    let mut buffer: u8 = 0;
+    for b in input.iter() {
+        let s = DECODE_SYMBOLS[*b as usize];
+        if s < 0 {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                format!("invalid symbol value {:}", *b as char),
+            ));
+        }
+        if bit_count + DECODED_BIT_LEN >= BYTE_BIT_LEN {
+            bit_count = bit_count + DECODED_BIT_LEN - BYTE_BIT_LEN;
+            let output = buffer | ((s as u8) >> bit_count);
+            dest.push(output);
+            buffer = if bit_count > 0 {
+                (s as u8) << (BYTE_BIT_LEN - bit_count)
+            } else {
+                0
+            };
+        } else {
+            buffer |= (s as u8) << (BYTE_BIT_LEN - DECODED_BIT_LEN - bit_count);
+            bit_count += DECODED_BIT_LEN;
+        }
+    }
+    Ok(())
+}
 
 struct FiveBitsIter<'a> {
     input: Iter<'a, u8>,
@@ -136,6 +163,56 @@ mod tests {
             assert_eq!(&dest, c.encoded);
         }
     }
+
+    #[test]
+    fn test_decode() {
+        for c in CASES.iter() {
+            let mut dest = Vec::new();
+            assert!(decode(&mut dest, c.encoded).is_ok());
+            assert_eq!(&dest, c.plain);
+        }
+    }
+
+    #[test]
+    fn test_decode_corner_cases() {
+        const CORNER_CASES: [TestCase; 3] = [
+            TestCase {
+                plain: b"",
+                encoded: b"C",
+            },
+            TestCase {
+                plain: b"f",
+                encoded: b"CR",
+            },
+            TestCase {
+                plain: b"f",
+                encoded: b"CR0",
+            },
+        ];
+        for c in CORNER_CASES.iter() {
+            let mut dest = Vec::new();
+            assert!(decode(&mut dest, c.encoded).is_ok());
+            assert_eq!(&dest, c.plain);
+        }
+    }
+
+    #[test]
+    fn test_decode_invalid_char() {
+        let mut dest = Vec::new();
+
+        let res = decode(&mut dest, b"U");
+        assert!(res.is_err());
+        let err = res.as_ref().err().unwrap();
+        assert_eq!(err.kind(), ErrorKind::InvalidInput);
+        assert_eq!(format!("{}", err), "invalid symbol value U");
+        
+        let res = decode(&mut dest, b"confuse");
+        assert!(res.is_err());
+        let err = res.as_ref().err().unwrap();
+        assert_eq!(err.kind(), ErrorKind::InvalidInput);
+        assert_eq!(format!("{}", err), "invalid symbol value u");
+    }
+
 
     #[test]
     fn test_5bits_iter() {
