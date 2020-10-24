@@ -71,24 +71,22 @@ impl<'a> Iterator for FiveBitsIter<'a> {
         } else {
             self.buffer
         };
-        if self.bit_count >= DECODED_BIT_LEN {
-            let rest = BYTE_BIT_LEN - DECODED_BIT_LEN;
-            let output = b1 >> (BYTE_BIT_LEN - DECODED_BIT_LEN);
-            if rest > 0 {
-                self.buffer = b1 << DECODED_BIT_LEN;
-            }
-            self.bit_count -= DECODED_BIT_LEN;
-            return Some(output);
-        }
 
-        let (b2, eof) = self.input.next().map_or((0, true), |b| (*b, false));
-        let output = (b1 | b2 >> self.bit_count) >> (BYTE_BIT_LEN - DECODED_BIT_LEN);
-        if eof {
-            self.bit_count = 0;
+        let output = if self.bit_count >= DECODED_BIT_LEN {
+            self.buffer = b1 << DECODED_BIT_LEN;
+            self.bit_count -= DECODED_BIT_LEN;
+            b1 >> (BYTE_BIT_LEN - DECODED_BIT_LEN)
         } else {
-            self.bit_count += BYTE_BIT_LEN - DECODED_BIT_LEN;
-            self.buffer = b2 << (BYTE_BIT_LEN - self.bit_count);
-        }
+            let (b2, eof) = self.input.next().map_or((0, true), |b| (*b, false));
+            let output = (b1 | b2 >> self.bit_count) >> (BYTE_BIT_LEN - DECODED_BIT_LEN);
+            if eof {
+                self.bit_count = 0;
+            } else {
+                self.bit_count += BYTE_BIT_LEN - DECODED_BIT_LEN;
+                self.buffer = b2 << (BYTE_BIT_LEN - self.bit_count);
+            }
+            output
+        };
         Some(output)
     }
 }
@@ -205,14 +203,13 @@ mod tests {
         let err = res.as_ref().err().unwrap();
         assert_eq!(err.kind(), ErrorKind::InvalidInput);
         assert_eq!(format!("{}", err), "invalid symbol value U");
-        
+
         let res = decode(&mut dest, b"confuse");
         assert!(res.is_err());
         let err = res.as_ref().err().unwrap();
         assert_eq!(err.kind(), ErrorKind::InvalidInput);
         assert_eq!(format!("{}", err), "invalid symbol value u");
     }
-
 
     #[test]
     fn test_5bits_iter() {
