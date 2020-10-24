@@ -7,8 +7,9 @@ pub fn decode_to_string<'a, I>(input: I) -> Result<String>
 where
     I: IntoIterator<Item = &'a u8>,
 {
-    let mut dest = String::new();
-    append_decoded_to_string(&mut dest, input)?;
+    let it = input.into_iter();
+    let mut dest = String::with_capacity(capacity_for_decode(it.size_hint().0));
+    append_decoded_to_string(&mut dest, it)?;
     Ok(dest)
 }
 
@@ -16,8 +17,9 @@ pub fn decode_to_vec<'a, I>(input: I) -> Result<Vec<u8>>
 where
     I: IntoIterator<Item = &'a u8>,
 {
-    let mut dest = Vec::new();
-    append_decoded_to_vec(&mut dest, input)?;
+    let it = input.into_iter();
+    let mut dest = Vec::with_capacity(capacity_for_decode(it.size_hint().0));
+    append_decoded_to_vec(&mut dest, it)?;
     Ok(dest)
 }
 
@@ -25,8 +27,9 @@ pub fn encode_to_string<'a, I>(input: I) -> String
 where
     I: IntoIterator<Item = &'a u8>,
 {
-    let mut dest = String::new();
-    append_encoded_to_string(&mut dest, input);
+    let it = input.into_iter();
+    let mut dest = String::with_capacity(capacity_for_encode(it.size_hint().0));
+    append_encoded_to_string(&mut dest, it);
     dest
 }
 
@@ -34,16 +37,25 @@ pub fn encode_to_vec<'a, I>(input: I) -> Vec<u8>
 where
     I: IntoIterator<Item = &'a u8>,
 {
-    let mut dest = Vec::new();
-    append_encoded_to_vec(&mut dest, input);
+    let it = input.into_iter();
+    let mut dest = Vec::with_capacity(capacity_for_encode(it.size_hint().0));
+    append_encoded_to_vec(&mut dest, it);
     dest
+}
+
+pub fn capacity_for_decode(len: usize) -> usize {
+    len * DECODED_BIT_LEN / BYTE_BIT_LEN
+}
+
+pub fn capacity_for_encode(len: usize) -> usize {
+    (len * BYTE_BIT_LEN + (DECODED_BIT_LEN - 1)) / DECODED_BIT_LEN
 }
 
 pub fn append_decoded_to_string<'a, I>(dest: &mut String, input: I) -> Result<()>
 where
-    I: IntoIterator<Item = &'a u8>,
+    I: Iterator<Item = &'a u8>,
 {
-    for b in DecodeIter::new(input.into_iter()) {
+    for b in DecodeIter::new(input) {
         dest.push(b? as char);
     }
     Ok(())
@@ -51,9 +63,9 @@ where
 
 pub fn append_decoded_to_vec<'a, I>(dest: &mut Vec<u8>, input: I) -> Result<()>
 where
-    I: IntoIterator<Item = &'a u8>,
+    I: Iterator<Item = &'a u8>,
 {
-    for b in DecodeIter::new(input.into_iter()) {
+    for b in DecodeIter::new(input) {
         dest.push(b?);
     }
     Ok(())
@@ -61,18 +73,18 @@ where
 
 pub fn append_encoded_to_string<'a, I>(dest: &mut String, input: I)
 where
-    I: IntoIterator<Item = &'a u8>,
+    I: Iterator<Item = &'a u8>,
 {
-    for b in FiveBitsIter::new(input.into_iter()) {
+    for b in FiveBitsIter::new(input) {
         dest.push(ENCODE_SYMBOLS[b as usize] as char);
     }
 }
 
 pub fn append_encoded_to_vec<'a, I>(dest: &mut Vec<u8>, input: I)
 where
-    I: IntoIterator<Item = &'a u8>,
+    I: Iterator<Item = &'a u8>,
 {
-    for b in FiveBitsIter::new(input.into_iter()) {
+    for b in FiveBitsIter::new(input) {
         dest.push(ENCODE_SYMBOLS[b as usize]);
     }
 }
@@ -257,6 +269,7 @@ mod tests {
     fn test_encode_to_string() {
         for c in CASES.iter() {
             assert_eq!(encode_to_string(c.plain.as_bytes()), c.encoded);
+            assert_eq!(capacity_for_encode(c.plain.len()), c.encoded.len());
         }
     }
 
@@ -264,6 +277,7 @@ mod tests {
     fn test_encode_to_vec() {
         for c in CASES.iter() {
             assert_eq!(encode_to_vec(c.plain.as_bytes()), c.encoded.as_bytes());
+            assert_eq!(capacity_for_encode(c.plain.len()), c.encoded.len());
         }
     }
 
@@ -273,6 +287,7 @@ mod tests {
             let ret = decode_to_string(c.encoded.as_bytes());
             assert!(ret.is_ok());
             assert_eq!(ret.ok().unwrap(), c.plain);
+            assert_eq!(capacity_for_decode(c.encoded.len()), c.plain.len());
         }
     }
 
@@ -282,6 +297,7 @@ mod tests {
             let ret = decode_to_vec(c.encoded.as_bytes());
             assert!(ret.is_ok());
             assert_eq!(ret.ok().unwrap(), c.plain.as_bytes());
+            assert_eq!(capacity_for_decode(c.encoded.len()), c.plain.len());
         }
     }
 
