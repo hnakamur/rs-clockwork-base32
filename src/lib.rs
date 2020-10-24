@@ -7,29 +7,8 @@ pub fn decode<'a, I>(dest: &mut Vec<u8>, input: I) -> Result<()>
 where
     I: IntoIterator<Item = &'a u8>,
 {
-    let mut bit_count: usize = 0;
-    let mut buffer: u8 = 0;
-    for b in input {
-        let s = DECODE_SYMBOLS[*b as usize];
-        if s < 0 {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!("invalid symbol value {:}", *b as char),
-            ));
-        }
-        if bit_count + DECODED_BIT_LEN >= BYTE_BIT_LEN {
-            bit_count = bit_count + DECODED_BIT_LEN - BYTE_BIT_LEN;
-            let output = buffer | ((s as u8) >> bit_count);
-            dest.push(output);
-            buffer = if bit_count > 0 {
-                (s as u8) << (BYTE_BIT_LEN - bit_count)
-            } else {
-                0
-            };
-        } else {
-            buffer |= (s as u8) << (BYTE_BIT_LEN - DECODED_BIT_LEN - bit_count);
-            bit_count += DECODED_BIT_LEN;
-        }
+    for b in DecodeIter::new(input.into_iter()) {
+        dest.push(b?);
     }
     Ok(())
 }
@@ -40,6 +19,59 @@ where
 {
     for b in FiveBitsIter::new(input.into_iter()) {
         dest.push(ENCODE_SYMBOLS[b as usize]);
+    }
+}
+
+struct DecodeIter<I> {
+    input: I,
+
+    // bit_count is effective bits count in buffer
+    bit_count: usize,
+
+    // buffer is keeping the `bit_count` bits from MSB to LSB.
+    buffer: u8,
+}
+
+impl<I> DecodeIter<I> {
+    fn new(input: I) -> Self {
+        Self {
+            input,
+            bit_count: 0,
+            buffer: 0,
+        }
+    }
+}
+
+impl<'a, I> Iterator for DecodeIter<I>
+where
+    I: Iterator<Item = &'a u8>,
+{
+    type Item = Result<u8>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(b) = self.input.next() {
+            let s = DECODE_SYMBOLS[*b as usize];
+            if s < 0 {
+                return Some(Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    format!("invalid symbol value {:}", *b as char),
+                )));
+            }
+            if self.bit_count + DECODED_BIT_LEN >= BYTE_BIT_LEN {
+                self.bit_count = self.bit_count + DECODED_BIT_LEN - BYTE_BIT_LEN;
+                let output = self.buffer | ((s as u8) >> self.bit_count);
+                self.buffer = if self.bit_count > 0 {
+                    (s as u8) << (BYTE_BIT_LEN - self.bit_count)
+                } else {
+                    0
+                };
+                return Some(Ok(output));
+            } else {
+                self.buffer |= (s as u8) << (BYTE_BIT_LEN - DECODED_BIT_LEN - self.bit_count);
+                self.bit_count += DECODED_BIT_LEN;
+            }
+        }
+        None
     }
 }
 
@@ -176,12 +208,26 @@ mod tests {
     }
 
     #[test]
+    fn test_encode_str() {
+        let mut dest = Vec::new();
+        encode(&mut dest, "foobar".as_bytes());
+        assert_eq!(&dest, b"CSQPYRK1E8");
+    }
+
+    #[test]
     fn test_decode() {
         for c in CASES.iter() {
             let mut dest = Vec::new();
             assert!(decode(&mut dest, c.encoded).is_ok());
             assert_eq!(&dest, c.plain);
         }
+    }
+
+    #[test]
+    fn test_decode_str() {
+        let mut dest = Vec::new();
+        assert!(decode(&mut dest, "CSQPYRK1E8".as_bytes()).is_ok());
+        assert_eq!(&dest, b"foobar");
     }
 
     #[test]
