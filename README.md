@@ -17,18 +17,20 @@ clockwork_base32 = { git = "https://github.com/hnakamur/rs-clockwork-base32", ta
 Encode bytes to a String:
 
 ```
-use clockwork_base32::encode_to_string;
-let encoded = encode_to_string(b"Hello, world!");
+use clockwork_base32 as base32;
+let encoded = base32::encode_to_string(b"Hello, world!");
 assert_eq!(&encoded, "91JPRV3F5GG7EVVJDHJ22");
 ```
 
 Decode bytes to a String:
 
 ```
-use clockwork_base32::decode_to_string;
-let decoded = decode_to_string(b"91JPRV3F5GG7EVVJDHJ22")?;
+use clockwork_base32 as base32;
+let decoded = base32::decode_to_string(b"91JPRV3F5GG7EVVJDHJ22")?;
 assert_eq!(&decoded, "Hello, world!");
 ```
+
+See [API documents](https://hnakamur.github.io/rs-clockwork-base32/) for details.
 
 # License
 
