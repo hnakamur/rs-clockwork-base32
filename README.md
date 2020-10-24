@@ -30,7 +30,7 @@ let decoded = base32::decode_to_string(b"91JPRV3F5GG7EVVJDHJ22")?;
 assert_eq!(&decoded, "Hello, world!");
 ```
 
-See [API documents](https://hnakamur.github.io/rs-clockwork-base32/) for details.
+See [API documents](https://hnakamur.github.io/rs-clockwork-base32/doc/clockwork_base32/) for details.
 
 # License
 
