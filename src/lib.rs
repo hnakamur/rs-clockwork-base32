@@ -1,15 +1,13 @@
 use std::io::{Error, ErrorKind, Result};
-use std::iter::Iterator;
-use std::slice::Iter;
 
-const ENCODED_BIT_LEN: usize = 8;
 const DECODED_BIT_LEN: usize = 5;
 const BYTE_BIT_LEN: usize = 8;
 
-pub fn encode(dest: &mut Vec<u8>, input: &[u8]) {
-    let capacity = (input.len() * ENCODED_BIT_LEN + DECODED_BIT_LEN - 1) / DECODED_BIT_LEN;
-    dest.reserve(capacity);
-    for b in FiveBitsIter::new(input.iter()) {
+pub fn encode<'a, I>(dest: &mut Vec<u8>, input: I)
+where
+    I: IntoIterator<Item = &'a u8>,
+{
+    for b in FiveBitsIter::new(input.into_iter()) {
         dest.push(ENCODE_SYMBOLS[b as usize]);
     }
 }
@@ -45,8 +43,8 @@ where
     Ok(())
 }
 
-struct FiveBitsIter<'a> {
-    input: Iter<'a, u8>,
+struct FiveBitsIter<I> {
+    input: I,
 
     // bit_count is effective bits count in buffer
     bit_count: usize,
@@ -55,8 +53,8 @@ struct FiveBitsIter<'a> {
     buffer: u8,
 }
 
-impl<'a> FiveBitsIter<'a> {
-    fn new(input: Iter<'a, u8>) -> Self {
+impl<I> FiveBitsIter<I> {
+    fn new(input: I) -> Self {
         Self {
             input,
             bit_count: 0,
@@ -65,7 +63,10 @@ impl<'a> FiveBitsIter<'a> {
     }
 }
 
-impl<'a> Iterator for FiveBitsIter<'a> {
+impl<'a, I> Iterator for FiveBitsIter<I>
+where
+    I: Iterator<Item = &'a u8>,
+{
     type Item = u8;
 
     fn next(&mut self) -> Option<Self::Item> {
