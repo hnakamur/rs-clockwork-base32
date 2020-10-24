@@ -9,8 +9,8 @@
 //! You can encode bytes to a [`String`] with [`encode_to_string`]:
 //!
 //! ```
-//! use clockwork_base32::encode_to_string;
-//! let encoded = encode_to_string(b"Hello, world!");
+//! use clockwork_base32 as base32;
+//! let encoded = base32::encode_to_string(b"Hello, world!");
 //! assert_eq!(&encoded, "91JPRV3F5GG7EVVJDHJ22");
 //! ```
 //!
@@ -18,8 +18,8 @@
 //!
 //! ```
 //! # fn main() -> std::io::Result<()> {
-//! use clockwork_base32::decode_to_string;
-//! let decoded = decode_to_string(b"91JPRV3F5GG7EVVJDHJ22")?;
+//! use clockwork_base32 as base32;
+//! let decoded = base32::decode_to_string(b"91JPRV3F5GG7EVVJDHJ22")?;
 //! assert_eq!(&decoded, "Hello, world!");
 //! # Ok(())
 //! # }
@@ -66,12 +66,12 @@ const BYTE_BIT_LEN: usize = 8;
 /// # Ok(())
 /// # }
 /// ```
-/// If your input is a [`String`], you can convert it to bytes using [`str::as_bytes`].
+/// If your input is a [`str`], you can convert it to bytes using [`str::as_bytes`].
 /// ```
 /// # fn main() -> std::io::Result<()> {
-/// use clockwork_base32::decode_to_string;
+/// use clockwork_base32 as base32;
 /// let input = String::from("91JPRV3F5GG7EVVJDHJ22");
-/// let decoded = decode_to_string(input.as_bytes())?;
+/// let decoded = base32::decode_to_string(input.as_bytes())?;
 /// assert_eq!(&decoded, "Hello, world!");
 /// # Ok(())
 /// # }
@@ -94,8 +94,8 @@ where
 /// # Examples
 /// ```
 /// # fn main() -> std::io::Result<()> {
-/// use clockwork_base32::decode_to_vec;
-/// let decoded = decode_to_vec(b"91JPRV3F5GG7EVVJDHJ22")?;
+/// use clockwork_base32 as base32;
+/// let decoded = base32::decode_to_vec(b"91JPRV3F5GG7EVVJDHJ22")?;
 /// assert_eq!(&decoded, b"Hello, world!");
 /// # Ok(())
 /// # }
@@ -115,15 +115,15 @@ where
 /// # Examples
 /// Basic usage:
 /// ```
-/// use clockwork_base32::encode_to_string;
-/// let encoded = encode_to_string(b"Hello, world!");
+/// use clockwork_base32 as base32;
+/// let encoded = base32::encode_to_string(b"Hello, world!");
 /// assert_eq!(&encoded, "91JPRV3F5GG7EVVJDHJ22");
 /// ```
-/// If your input is a [`String`], you can convert it to bytes using [`str::as_bytes`].
+/// If your input is a [`str`], you can convert it to bytes using [`str::as_bytes`].
 /// ```
-/// use clockwork_base32::encode_to_string;
+/// use clockwork_base32 as base32;
 /// let input = String::from("Hello, world!");
-/// let encoded = encode_to_string(input.as_bytes());
+/// let encoded = base32::encode_to_string(input.as_bytes());
 /// assert_eq!(&encoded, "91JPRV3F5GG7EVVJDHJ22");
 /// ```
 pub fn encode_to_string<'a, I>(input: I) -> String
@@ -140,8 +140,8 @@ where
 ///
 /// # Examples
 /// ```
-/// use clockwork_base32::encode_to_vec;
-/// let encoded = encode_to_vec(b"Hello, world!");
+/// use clockwork_base32 as base32;
+/// let encoded = base32::encode_to_vec(b"Hello, world!");
 /// assert_eq!(&encoded, b"91JPRV3F5GG7EVVJDHJ22");
 /// ```
 pub fn encode_to_vec<'a, I>(input: I) -> Vec<u8>
@@ -158,17 +158,18 @@ where
 /// # Examples
 /// Basic usage:
 /// ```
-/// use clockwork_base32::capacity_hint_for_decode;
-/// let capacity = capacity_hint_for_decode(21);
+/// use clockwork_base32 as base32;
+/// let capacity = base32::capacity_hint_for_decode(21);
 /// assert_eq!(capacity, 13);
 /// ```
 /// You can reserve the needed capacity before decoding:
 /// ```
 /// # fn main() -> std::io::Result<()> {
-/// use clockwork_base32::append_decoded_to_string;
+/// use clockwork_base32 as base32;
 /// let input = b"91JPRV3F5GG7EVVJDHJ22";
-/// let mut dest = String::with_capacity(input.len());
-/// append_decoded_to_string(&mut dest, input.into_iter())?;
+/// let capacity = base32::capacity_hint_for_encode(input.len());
+/// let mut dest = String::with_capacity(capacity);
+/// base32::append_decoded_to_string(&mut dest, input.into_iter())?;
 /// assert_eq!(&dest, "Hello, world!");
 /// # Ok(())
 /// # }
@@ -181,16 +182,17 @@ pub fn capacity_hint_for_decode(input_byte_len: usize) -> usize {
 /// # Examples
 /// Basic usage:
 /// ```
-/// use clockwork_base32::capacity_hint_for_encode;
-/// let capacity = capacity_hint_for_encode(13);
+/// use clockwork_base32 as base32;
+/// let capacity = base32::capacity_hint_for_encode(13);
 /// assert_eq!(capacity, 21);
 /// ```
 /// You can reserve the needed capacity before encoding:
 /// ```
-/// use clockwork_base32::append_encoded_to_string;
+/// use clockwork_base32 as base32;
 /// let input = b"Hello, world!";
-/// let mut dest = String::with_capacity(input.len());
-/// append_encoded_to_string(&mut dest, input.into_iter());
+/// let capacity = base32::capacity_hint_for_encode(input.len());
+/// let mut dest = String::with_capacity(capacity);
+/// base32::append_encoded_to_string(&mut dest, input.into_iter());
 /// assert_eq!(&dest, "91JPRV3F5GG7EVVJDHJ22");
 /// ```
 pub fn capacity_hint_for_encode(input_byte_len: usize) -> usize {
@@ -206,20 +208,20 @@ pub fn capacity_hint_for_encode(input_byte_len: usize) -> usize {
 /// Basic usage:
 /// ```
 /// # fn main() -> std::io::Result<()> {
-/// use clockwork_base32::append_decoded_to_string;
+/// use clockwork_base32 as base32;
 /// let mut dest = String::new();
-/// append_decoded_to_string(&mut dest, b"91JPRV3F5GG7EVVJDHJ22".into_iter())?;
+/// base32::append_decoded_to_string(&mut dest, b"91JPRV3F5GG7EVVJDHJ22".into_iter())?;
 /// assert_eq!(&dest, "Hello, world!");
 /// # Ok(())
 /// # }
 /// ```
-/// If your input is a [`String`], you can convert it to bytes using [`str::as_bytes`].
+/// If your input is a [`str`], you can convert it to bytes using [`str::as_bytes`].
 /// ```
 /// # fn main() -> std::io::Result<()> {
-/// use clockwork_base32::append_decoded_to_string;
+/// use clockwork_base32 as base32;
 /// let mut dest = String::new();
 /// let input = String::from("91JPRV3F5GG7EVVJDHJ22");
-/// append_decoded_to_string(&mut dest, input.as_bytes().into_iter())?;
+/// base32::append_decoded_to_string(&mut dest, input.as_bytes().into_iter())?;
 /// assert_eq!(&dest, "Hello, world!");
 /// # Ok(())
 /// # }
@@ -227,10 +229,11 @@ pub fn capacity_hint_for_encode(input_byte_len: usize) -> usize {
 /// You can reserve the needed capacity before decoding:
 /// ```
 /// # fn main() -> std::io::Result<()> {
-/// use clockwork_base32::append_decoded_to_string;
+/// use clockwork_base32 as base32;
 /// let input = b"91JPRV3F5GG7EVVJDHJ22";
-/// let mut dest = String::with_capacity(input.len());
-/// append_decoded_to_string(&mut dest, input.into_iter())?;
+/// let capacity = base32::capacity_hint_for_decode(input.len());
+/// let mut dest = String::with_capacity(capacity);
+/// base32::append_decoded_to_string(&mut dest, input.into_iter())?;
 /// assert_eq!(&dest, "Hello, world!");
 /// # Ok(())
 /// # }
@@ -254,9 +257,9 @@ where
 /// Basic usage:
 /// ```
 /// # fn main() -> std::io::Result<()> {
-/// use clockwork_base32::append_decoded_to_vec;
+/// use clockwork_base32 as base32;
 /// let mut dest = Vec::new();
-/// append_decoded_to_vec(&mut dest, b"91JPRV3F5GG7EVVJDHJ22".into_iter())?;
+/// base32::append_decoded_to_vec(&mut dest, b"91JPRV3F5GG7EVVJDHJ22".into_iter())?;
 /// assert_eq!(&dest, b"Hello, world!");
 /// # Ok(())
 /// # }
@@ -264,10 +267,10 @@ where
 /// You can reserve the needed capacity before decoding:
 /// ```
 /// # fn main() -> std::io::Result<()> {
-/// use clockwork_base32::append_decoded_to_vec;
+/// use clockwork_base32 as base32;
 /// let input = b"91JPRV3F5GG7EVVJDHJ22";
 /// let mut dest = Vec::with_capacity(input.len());
-/// append_decoded_to_vec(&mut dest, input.into_iter())?;
+/// base32::append_decoded_to_vec(&mut dest, input.into_iter())?;
 /// assert_eq!(&dest, b"Hello, world!");
 /// # Ok(())
 /// # }
@@ -287,25 +290,26 @@ where
 /// # Examples
 /// Basic usage:
 /// ```
-/// use clockwork_base32::append_encoded_to_string;
+/// use clockwork_base32 as base32;
 /// let mut dest = String::new();
-/// append_encoded_to_string(&mut dest, b"Hello, world!".into_iter());
+/// base32::append_encoded_to_string(&mut dest, b"Hello, world!".into_iter());
 /// assert_eq!(&dest, "91JPRV3F5GG7EVVJDHJ22");
 /// ```
-/// If your input is a [`String`], you can convert it to bytes using [`str::as_bytes`].
+/// If your input is a [`str`], you can convert it to bytes using [`str::as_bytes`].
 /// ```
-/// use clockwork_base32::append_encoded_to_string;
+/// use clockwork_base32 as base32;
 /// let mut dest = String::new();
 /// let input = String::from("Hello, world!");
-/// append_encoded_to_string(&mut dest, input.as_bytes().into_iter());
+/// base32::append_encoded_to_string(&mut dest, input.as_bytes().into_iter());
 /// assert_eq!(&dest, "91JPRV3F5GG7EVVJDHJ22");
 /// ```
 /// You can reserve the needed capacity before encoding:
 /// ```
-/// use clockwork_base32::append_encoded_to_string;
+/// use clockwork_base32 as base32;
 /// let input = b"Hello, world!";
-/// let mut dest = String::with_capacity(input.len());
-/// append_encoded_to_string(&mut dest, input.into_iter());
+/// let capacity = base32::capacity_hint_for_encode(input.len());
+/// let mut dest = String::with_capacity(capacity);
+/// base32::append_encoded_to_string(&mut dest, input.into_iter());
 /// assert_eq!(&dest, "91JPRV3F5GG7EVVJDHJ22");
 /// ```
 pub fn append_encoded_to_string<'a, I>(dest: &mut String, input: I)
@@ -322,25 +326,26 @@ where
 /// # Examples
 /// Basic usage:
 /// ```
-/// use clockwork_base32::append_encoded_to_vec;
+/// use clockwork_base32 as base32;
 /// let mut dest = Vec::new();
-/// append_encoded_to_vec(&mut dest, b"Hello, world!".into_iter());
+/// base32::append_encoded_to_vec(&mut dest, b"Hello, world!".into_iter());
 /// assert_eq!(&dest, b"91JPRV3F5GG7EVVJDHJ22");
 /// ```
-/// If your input is a [`String`], you can convert it to bytes using [`str::as_bytes`].
+/// If your input is a [`str`], you can convert it to bytes using [`str::as_bytes`].
 /// ```
-/// use clockwork_base32::append_encoded_to_vec;
+/// use clockwork_base32 as base32;
 /// let mut dest = Vec::new();
 /// let input = String::from("Hello, world!");
-/// append_encoded_to_vec(&mut dest, input.as_bytes().into_iter());
+/// base32::append_encoded_to_vec(&mut dest, input.as_bytes().into_iter());
 /// assert_eq!(&dest, b"91JPRV3F5GG7EVVJDHJ22");
 /// ```
 /// You can reserve the needed capacity before encoding:
 /// ```
-/// use clockwork_base32::append_encoded_to_vec;
+/// use clockwork_base32 as base32;
 /// let input = b"Hello, world!";
-/// let mut dest = Vec::with_capacity(input.len());
-/// append_encoded_to_vec(&mut dest, input.into_iter());
+/// let capacity = base32::capacity_hint_for_encode(input.len());
+/// let mut dest = Vec::with_capacity(capacity);
+/// base32::append_encoded_to_vec(&mut dest, input.into_iter());
 /// assert_eq!(&dest, b"91JPRV3F5GG7EVVJDHJ22");
 /// ```
 pub fn append_encoded_to_vec<'a, I>(dest: &mut Vec<u8>, input: I)

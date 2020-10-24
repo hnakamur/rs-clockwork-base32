@@ -3,7 +3,12 @@ name = "clockwork_base32"
 version = "0.1.0"
 authors = ["Hiroaki Nakamura <hnakamur@gmail.com>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/hnakamur/rs-clockwork-base32"
+homepage = "https://github.com/hnakamur/rs-clockwork-base32"
+documentation = "https://hnakamur.github.io/rs-clockwork-base32/"
+keywords = ["base32", "clockwork", "encode", "decode"]
+categories = ["encoding"]
+readme = "README.md"
 
 [dependencies]
